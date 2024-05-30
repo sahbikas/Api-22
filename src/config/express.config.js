@@ -1,95 +1,61 @@
 const express = require("express")
 const app = express()
-/*
-app.get('/', (req, res) => {
-    console.log("i am here");
-    res.json({
-        
-        result: "i am in .get()"
-        
-    })
-});
 
-app.post("/", (req, res) => {
-    console.log("i am post")
-    res.json({
-         result: "i am in .post()"
-    })
-})
+require("./mongodb.config");
 
-app.get("/about", (req, res) => {
-    res.json({
-        result: {
-            content: "this is about containt",
-            memberList: [
-                {
-                    id: 2,
-                    name: "bikash sah",
-                    postion: "ceo",
-                    address: "jankpur"
-                }
-            ]
-        }
-    })
+const router = require("../routes")
+const { ZodError, object } = require("zod")
+const { JsonWebTokenError, TokenExpiredError } = require("jsonwebtoken")
+app.use(express.json())
+app.use(express.urlencoded({
+    extended: false
+}))
+
+app.use('/api/v1/', router)
+
+app.use((req, res, next) => {
+    next({ code: 404, message: "Not Found" })
 })
 
-app.get('/:catSlug/:prodSlug/:prodId', (req, res) => {
-    let {catSlug, prodSlug, prodId} = req.params;
-    let query = req.query;
-    //let catSlug = params.catSlug
-    res.json({
-         result: {catSlug, prodSlug, prodId, query},
-         msg: "success",
-         meta: null
+app.use((error, req, res, next) => {
+    //console.log(error);
+    
+    let code = error.code ?? 500;
+    let msg = error.message ?? "Internal server error";
 
+    if (error instanceof ZodError) {
+        let errorMsg = {};
+        error.errors.map((errorobj) => {
+            // console.log(errorobj) 
+            if(errorobj.path.length){
+                errorMsg[errorobj.path[0]] = errorobj.message
+            }else{
+                errorMsg['cart']= "cart cannot empty"
+            }
+           
+            
+        })
+        code = 400;
+        msg = errorMsg;
+    }
+
+    if (error instanceof JsonWebTokenError || error instanceof TokenExpiredError) {
+        code = 401;
+        msg = error.message;
+    }
+    let result = null
+    if (error.code === 11000) {
+        code = 422;
+        const keys = object.keys(error.keyPattern);
+        result = keys.map((key) => ({ [key]: key + "should be unique" }))
+        msg = "validation Faild"
+    }
+
+    res.status(code).json({
+        result: result,
+        msg: msg,
+        meta: null
     })
 })
-*/
-app.get('/',(request,response)=>{
-     
-    response.json({
-        result:"list of users",
-        msg:"list of users",
-        
-    })
-})
-app.post('/',(request,response)=>{
-     
-    response.json({
-        result:"list detail",
-        msg:"list login",
-        
-    })
-})
-app.post('/',(request,response)=>{
-     
-    response.json({
-        result:"list detail",
-        msg:"list register",
-        
-    })
-})
-/*
-task 1
-in express definre the following routes with proper responsae (set yourself);
-set a get request for list of all the users with endpoint set to  => /users
-e.g => output => json => {result: "list of users"}, {result: [], msg: "list of users"}
-set a post reuest for the login endpoint should be => login
-e.g => output => json => {result: "list detail"}, {result: [], msg: "list login"}
-set a post reuest for register endpoint should be => /register
-e.g => output => json => {result: "list detail"}, {result: [], msg: "list register"}
-set a get request to get a user detail based on id => /user[id value]
-e.g => output => json => {result: "list detail for id"}, {result: [], msg: "detail of id"}
-*/
-// .use(), .get(), .post()
-// .put(), .patch(), .delete(), .set(), .get()
-//app.use('/',(request,response)=>{
-    // response.send("hello express");
-    //response.json({
-       // result:"hello express",
-       // msg:"success",
-        //meta:null
-   // })
-//})
 
 module.exports = app;
